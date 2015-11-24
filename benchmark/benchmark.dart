@@ -46,6 +46,7 @@ main(args) {
     benchmark('relative', context.relative);
     benchmark('toUri', context.toUri);
     benchmark('prettyUri', context.prettyUri);
+    benchmark('isWithin', context.isWithin);
   }
 }
 

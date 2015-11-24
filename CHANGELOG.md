@@ -1,3 +1,8 @@
+## 1.3.8
+
+* Improve the performance of `isWithin()` when the paths don't contain
+  asymmetrical `.` or `..` components.
+
 ## 1.3.7
 
 * Improve the performance of `absolute()` and `normalize()`.
