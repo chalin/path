@@ -546,6 +546,7 @@ main() {
       expect(context.isWithin(r'foo\.bar', r'foo\.bar\baz'), isTrue);
       expect(context.isWithin(r'foo\.\bar', r'foo\.bar\baz'), isFalse);
       expect(context.isWithin(r'foo\..bar', r'foo\..bar\baz'), isTrue);
+      expect(context.isWithin(r'foo\bar', r'foo\bar\baz\..'), isFalse);
       expect(context.isWithin(r'C:\', 'C:/foo'), isTrue);
       expect(context.isWithin(r'C:\', r'D:\foo'), isFalse);
       expect(context.isWithin(r'C:\', r'\\foo\bar'), isFalse);

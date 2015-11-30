@@ -631,8 +631,8 @@ class Context {
       // As long as the remainders of the two paths don't have any unresolved
       // ".." components, we can be confident that [child] is not within
       // [parent].
-      if (_checkRemainder(childCodeUnits, childIndex) < 1) return null;
-      if (_checkRemainder(parentCodeUnits, parentIndex) < 1) return null;
+      if (_pathDirection(childCodeUnits, childIndex) < 1) return null;
+      if (_pathDirection(parentCodeUnits, parentIndex) < 1) return null;
       return false;
     }
 
@@ -643,21 +643,21 @@ class Context {
     //     isWithin("foo/bar/baz", "foo/bar") //=> false
     //     isWithin("foo/bar/baz/../..", "foo/bar") //=> true
     if (childIndex == child.length) {
-      var result = _checkRemainder(parentCodeUnits, parentIndex);
-      return result < 0 ? null : false;
+      var direction = _pathDirection(parentCodeUnits, parentIndex);
+      return direction < 0 ? null : false;
     }
 
     // We've reached the end of the parent path, which means it's time to make a
     // decision. Before we do, though, we'll check the rest of the child to see
     // what that tells us.
-    var result = _checkRemainder(childCodeUnits, childIndex);
+    var direction = _pathDirection(childCodeUnits, childIndex);
 
     // If there are no more components in the child, then it's the same as
     // the parent, not within it.
     //
     //     isWithin("foo/bar", "foo/bar") //=> false
     //     isWithin("foo/bar", "foo/bar//") //=> false
-    if (result == 0) return false;
+    if (direction == 0) return false;
 
     // If there are unresolved ".." components in the child, no decision we make
     // will be valid. We'll abort and do the slow check instead.
@@ -665,7 +665,7 @@ class Context {
     //     isWithin("foo/bar", "foo/bar/..") //=> false
     //     isWithin("foo/bar", "foo/bar/baz/bang/../../..") //=> false
     //     isWithin("foo/bar", "foo/bar/baz/bang/../../../bar/baz") //=> true
-    if (result < 0) return null;
+    if (direction < 0) return null;
 
     // The child is within the parent if and only if we're on a separator
     // boundary.
@@ -692,14 +692,14 @@ class Context {
   //
   // This ignores leading separators.
   //
-  //     checkRemainder("foo") //=> +
-  //     checkRemainder("foo/bar/../baz") //=> +
-  //     checkRemainder("//foo/bar/baz") //=> +
-  //     checkRemainder("/") //=> 0
-  //     checkRemainder("foo/../baz") //=> 0
-  //     checkRemainder("foo/../..") //=> -
-  //     checkRemainder("foo/../../foo/bar/baz") //=> -
-  int _checkRemainder(List<int> codeUnits, int index) {
+  //     pathDirection("foo") //=> +
+  //     pathDirection("foo/bar/../baz") //=> +
+  //     pathDirection("//foo/bar/baz") //=> +
+  //     pathDirection("/") //=> 0
+  //     pathDirection("foo/../baz") //=> 0
+  //     pathDirection("foo/../..") //=> -
+  //     pathDirection("foo/../../foo/bar/baz") //=> -
+  int _pathDirection(List<int> codeUnits, int index) {
     var depth = 0;
 
     // We initially consider ourselves to be after an invisible root separator.
