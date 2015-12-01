@@ -411,6 +411,9 @@ class Context {
   /// "/", no path can be determined. In this case, a [PathException] will be
   /// thrown.
   String relative(String path, {String from}) {
+    // Avoid expensive computation if the path is already relative.
+    if (from == null && this.isRelative(path)) return path;
+
     from = from == null ? current : absolute(from);
 
     // We can't determine the path from a relative path to an absolute path.
