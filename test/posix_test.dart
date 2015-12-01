@@ -429,6 +429,7 @@ main() {
       expect(context.isWithin('foo/./bar', 'foo/.bar/baz'), isFalse);
       expect(context.isWithin('foo/..bar', 'foo/..bar/baz'), isTrue);
       expect(context.isWithin('foo/bar', 'foo/bar/baz/..'), isFalse);
+      expect(context.isWithin('foo/bar', 'foo/bar/baz/../qux'), isTrue);
     });
 
     test('from a relative root', () {

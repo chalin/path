@@ -631,8 +631,11 @@ class Context {
       // As long as the remainders of the two paths don't have any unresolved
       // ".." components, we can be confident that [child] is not within
       // [parent].
-      if (_pathDirection(childCodeUnits, childIndex) < 1) return null;
-      if (_pathDirection(parentCodeUnits, parentIndex) < 1) return null;
+      var childDirection = _pathDirection(childCodeUnits, childIndex);
+      if (childDirection != _PathDirection.belowRoot) return null;
+      var parentDirection = _pathDirection(parentCodeUnits, parentIndex);
+      if (parentDirection != _PathDirection.belowRoot) return null;
+
       return false;
     }
 
@@ -644,7 +647,7 @@ class Context {
     //     isWithin("foo/bar/baz/../..", "foo/bar") //=> true
     if (childIndex == child.length) {
       var direction = _pathDirection(parentCodeUnits, parentIndex);
-      return direction < 0 ? null : false;
+      return direction == _PathDirection.aboveRoot ? null : false;
     }
 
     // We've reached the end of the parent path, which means it's time to make a
@@ -657,7 +660,7 @@ class Context {
     //
     //     isWithin("foo/bar", "foo/bar") //=> false
     //     isWithin("foo/bar", "foo/bar//") //=> false
-    if (direction == 0) return false;
+    if (direction == _PathDirection.atRoot) return false;
 
     // If there are unresolved ".." components in the child, no decision we make
     // will be valid. We'll abort and do the slow check instead.
@@ -665,7 +668,7 @@ class Context {
     //     isWithin("foo/bar", "foo/bar/..") //=> false
     //     isWithin("foo/bar", "foo/bar/baz/bang/../../..") //=> false
     //     isWithin("foo/bar", "foo/bar/baz/bang/../../../bar/baz") //=> true
-    if (direction < 0) return null;
+    if (direction == _PathDirection.aboveRoot) return null;
 
     // The child is within the parent if and only if we're on a separator
     // boundary.
@@ -677,86 +680,69 @@ class Context {
         style.isSeparator(lastCodeUnit);
   }
 
-  // Returns the information about the path represented by [codeUnits] after
-  // [index].
-  //
-  // Specifically, this returns:
-  //
-  // * A negative number if the path contains ".." components that at any point
-  //   cause the directory to go above the root.
-  //
-  // * Zero if the path has no components, or if it contains ".." that at any
-  //   point cause the directory to go back to the root (but not above it).
-  //
-  // * A positive number otherwise.
+  // Returns a [_PathDirection] describing the path represented by [codeUnits]
+  // after [index].
   //
   // This ignores leading separators.
   //
-  //     pathDirection("foo") //=> +
-  //     pathDirection("foo/bar/../baz") //=> +
-  //     pathDirection("//foo/bar/baz") //=> +
-  //     pathDirection("/") //=> 0
-  //     pathDirection("foo/../baz") //=> 0
-  //     pathDirection("foo/../..") //=> -
-  //     pathDirection("foo/../../foo/bar/baz") //=> -
-  int _pathDirection(List<int> codeUnits, int index) {
+  //     pathDirection("foo") //=> below root
+  //     pathDirection("foo/bar/../baz") //=> below root
+  //     pathDirection("//foo/bar/baz") //=> below root
+  //     pathDirection("/") //=> at root
+  //     pathDirection("foo/..") //=> at root
+  //     pathDirection("foo/../baz") //=> reaches root
+  //     pathDirection("foo/../..") //=> above root
+  //     pathDirection("foo/../../foo/bar/baz") //=> above root
+  _PathDirection _pathDirection(List<int> codeUnits, int index) {
     var depth = 0;
-
-    // We initially consider ourselves to be after an invisible root separator.
-    var afterSeparator = true;
-    for (var i = index; i < codeUnits.length; i++) {
-      var codeUnit = codeUnits[i];
-
-      if (style.isSeparator(codeUnit)) {
-        // Ignore doubled separators (and initial separators).
-        if (!afterSeparator) depth++;
-        afterSeparator = true;
-        continue;
+    var reachedRoot = false;
+    var i = index;
+    while (i < codeUnits.length) {
+      // Ignore initial separators or doubled separators.
+      while (i < codeUnits.length && style.isSeparator(codeUnits[i])) {
+        i++;
       }
 
-      // Ignore non-meaningful characters.
-      if (codeUnit != chars.PERIOD || !afterSeparator) {
-        afterSeparator = false;
-        continue;
+      // If we're at the end, stop.
+      if (i == codeUnits.length) break;
+
+      // Move through the path component to the next separator.
+      var start = i;
+      while (i < codeUnits.length && !style.isSeparator(codeUnits[i])) {
+        i++;
       }
 
-      // Move forward so we're positioned after "/.".
-      i++;
-
-      if (i == codeUnits.length) return depth;
-      codeUnit = codeUnits[i];
-
-      // Ignore "/./", and don't increment the depth for the trailing slash.
-      if (style.isSeparator(codeUnit)) continue;
-
-      // "/.foo" isn't anything meaningful.
-      if (codeUnit != chars.PERIOD) {
-        afterSeparator = false;
-        continue;
-      }
-
-      // Move forward again so we're positioned after "/..".
-      i++;
-
-      if (i == codeUnits.length) return depth - 1;
-      codeUnit = codeUnits[i];
-
-      // "/../" decreases depth.
-      if (style.isSeparator(codeUnit)) {
+      // See if the path component is ".", "..", or a name.
+      if (i - start == 1 && codeUnits[start] == chars.PERIOD) {
+        // Don't change the depth.
+      } else if (i - start == 2 &&
+          codeUnits[start] == chars.PERIOD &&
+          codeUnits[start + 1] == chars.PERIOD) {
+        // ".." backs out a directory.
         depth--;
-        if (depth == 0) return 0;
-        if (depth < 0) return depth;
-        continue;
+
+        // If we work back beyond the root, stop.
+        if (depth < 0) break;
+
+        // Record that we reached the root so we don't return
+        // [_PathDirection.belowRoot].
+        if (depth == 0) reachedRoot = true;
+      } else {
+        // Step inside a directory.
+        depth++;
       }
 
-      // "/..foo" isn't anything meaningful.
-      afterSeparator = false;
+      // If we're at the end, stop.
+      if (i == codeUnits.length) break;
+
+      // Move past the separator.
+      i++;
     }
 
-    // If the path didn't have a trailing separator, add another unit of depth
-    // to account for the current component. We have to do this because depth is counted
-    // on each trailing separator.
-    return afterSeparator ? depth : depth + 1;
+    if (depth < 0) return _PathDirection.aboveRoot;
+    if (depth == 0) return _PathDirection.atRoot;
+    if (reachedRoot) return _PathDirection.reachesRoot;
+    return _PathDirection.belowRoot;
   }
 
   /// Removes a trailing extension from the last part of [path].
@@ -890,4 +876,31 @@ _validateArgList(String method, List<String> args) {
     message.write("): part ${i - 1} was null, but part $i was not.");
     throw new ArgumentError(message.toString());
   }
+}
+
+/// An enum of possible return values for [Context._pathDirection].
+class _PathDirection {
+  /// The path contains enough ".." components that at some point it reaches
+  /// above its original root.
+  ///
+  /// Note that this applies even if the path ends beneath its original root. It
+  /// takes precendence over any other return values that may apple.
+  static const aboveRoot = const _PathDirection("above root");
+
+  /// The path contains enough ".." components that it ends at its original
+  /// root.
+  static const atRoot = const _PathDirection("at root");
+
+  /// The path contains enough ".." components that at some point it reaches its
+  /// original root, but it ends beneath that root.
+  static const reachesRoot = const _PathDirection("reaches root");
+
+  /// The path never reaches to or above its original root.
+  static const belowRoot = const _PathDirection("below root");
+
+  final String name;
+
+  const _PathDirection(this.name);
+
+  String toString() => name;
 }

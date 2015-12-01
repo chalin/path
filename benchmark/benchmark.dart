@@ -6,16 +6,20 @@ import '../lib/path.dart' as path;
 
 void runBenchmark(String name, Function func, List files) {
   // Warmup.
-  for (int i = 0; i < 10000; i++) {
-    for (var p in files) {
-      func(p);
+  for (int i = 0; i < 1000; i++) {
+    for (var p1 in files) {
+      for (var p2 in files) {
+        func(p1, p2);
+      }
     }
   }
-  var count = 100000;
+  var count = 10000;
   var sw = new Stopwatch()..start();
   for (int i = 0; i < count; i++) {
-    for (var p in files) {
-      func(p);
+    for (var p1 in files) {
+      for (var p2 in files) {
+        func(p1, p2);
+      }
     }
   }
   print("$name: ${count / sw.elapsedMicroseconds} iter/us (${sw.elapsed})");
@@ -46,7 +50,6 @@ main(args) {
     benchmark('relative', context.relative);
     benchmark('toUri', context.toUri);
     benchmark('prettyUri', context.prettyUri);
-    benchmark('isWithin', context.isWithin);
   }
 }
 

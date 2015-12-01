@@ -639,6 +639,7 @@ main() {
       expect(context.isWithin('foo/./bar', 'foo/.bar/baz'), isFalse);
       expect(context.isWithin('foo/..bar', 'foo/..bar/baz'), isTrue);
       expect(context.isWithin('foo/bar', 'foo/bar/baz/..'), isFalse);
+      expect(context.isWithin('foo/bar', 'foo/bar/baz/../qux'), isTrue);
       expect(context.isWithin('http://example.org/', 'http://example.com/foo'),
           isFalse);
       expect(context.isWithin('http://example.org/', 'http://dartlang.org/foo'),
