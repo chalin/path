@@ -73,7 +73,7 @@ class PathSet extends IterableBase<String> implements Set<String> {
 
   void retainAll(Iterable<Object> elements) => _inner.retainAll(elements);
 
-  Set<T> retype<T>() => _inner.retype<T>();
+  Set<T> retype<T>() => _inner.cast<T>();
 
   void retainWhere(bool test(String element)) => _inner.retainWhere(test);
 
